@@ -1,11 +1,10 @@
 # =========================
-# BASE IMAGE
+# BASE (Backend)
 # =========================
-FROM node:20-alpine AS base
+FROM node:20-alpine AS backend
 
 WORKDIR /app/backend
 
-# Install dependencies needed for sqlite3 build
 RUN apk add --no-cache \
     python3 \
     make \
@@ -14,56 +13,46 @@ RUN apk add --no-cache \
     sqlite-dev \
     bash
 
-# Fix python symlink (node-gyp requirement)
-RUN ln -sf python3 /usr/bin/python
-
-# =========================
-# INSTALL DEPENDENCIES
-# =========================
-FROM base AS deps
-
-COPY backend/package*.json ./
-
-# IMPORTANT: ensure clean install for sqlite3 build
-RUN npm install --build-from-source
-
-# =========================
-# DEVELOPMENT STAGE
-# =========================
-FROM base AS backend-dev
-
-WORKDIR /app/backend
-
-COPY backend/ ./
-COPY --from=deps /app/backend/node_modules ./node_modules
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev"]
-
-# =========================
-# PRODUCTION STAGE
-# =========================
-FROM node:20-alpine AS backend-prod
-
-WORKDIR /app/backend
-
-RUN apk add --no-cache \
-    sqlite \
-    sqlite-dev \
-    python3 \
-    make \
-    g++ \
-    bash
-
 RUN ln -sf python3 /usr/bin/python
 
 COPY backend/package*.json ./
-
-# IMPORTANT: rebuild sqlite3 correctly in prod
-RUN npm install --omit=dev --build-from-source
+RUN npm install
 
 COPY backend/ ./
+
+# =========================
+# FRONTEND BUILD (VITE)
+# =========================
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app/client
+
+COPY client/package*.json ./
+RUN npm install
+
+COPY client/ ./
+RUN npm run build
+
+# =========================
+# FINAL RUNTIME IMAGE
+# =========================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install runtime dependencies for backend
+RUN apk add --no-cache sqlite sqlite-dev bash
+
+RUN ln -sf python3 /usr/bin/python || true
+
+# Copy backend
+COPY --from=backend /app/backend /app/backend
+COPY --from=backend /app/backend/node_modules /app/backend/node_modules
+
+# Copy frontend build into backend static folder OR nginx folder
+COPY --from=frontend-build /app/client/dist /app/client/dist
+
+WORKDIR /app/backend
 
 EXPOSE 3000
 

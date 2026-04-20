@@ -1,15 +1,9 @@
-version: "3.9"
-
 services:
-  # =========================
-  # BACKEND (Node API)
-  # =========================
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-      target: backend-dev   # ✅ IMPORTANT FIX (matches Dockerfile stage)
-    container_name: getting-started-backend
+    container_name: todo-backend
     ports:
       - "3000:3000"
     volumes:
@@ -18,31 +12,11 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-    depends_on:
-      - mysql
     restart: unless-stopped
 
-  # =========================
-  # FRONTEND (React/Vite + Nginx)
-  # =========================
-  client:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: client
-    container_name: getting-started-client
-    ports:
-      - "5173:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  # =========================
-  # DATABASE
-  # =========================
   mysql:
     image: mysql:9.3
-    container_name: getting-started-mysql
+    container_name: todo-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -54,12 +28,9 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
-  # =========================
-  # PHPMYADMIN (optional UI)
-  # =========================
   phpmyadmin:
     image: phpmyadmin
-    container_name: getting-started-phpmyadmin
+    container_name: phpmyadmin
     restart: unless-stopped
     ports:
       - "8081:80"
@@ -68,25 +39,5 @@ services:
     depends_on:
       - mysql
 
-  # =========================
-  # REVERSE PROXY (optional)
-  # =========================
-  proxy:
-    image: traefik:v3.6
-    container_name: getting-started-proxy
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"
-      - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    restart: unless-stopped
-
-# =========================
-# VOLUMES
-# =========================
 volumes:
   mysql-data:
