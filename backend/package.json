@@ -6,7 +6,8 @@
     "format": "prettier -l --write \"**/*.js\"",
     "format-check": "prettier --check \"**/*.js\"",
     "test": "jest",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "start": "node index.js"
   },
   "dependencies": {
     "express": "^5.1.0",

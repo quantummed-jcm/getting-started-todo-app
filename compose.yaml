@@ -3,26 +3,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: backend
     container_name: todo-backend
     ports:
       - "3000:3000"
-    volumes:
-      - ./backend:/app/backend
-      - /app/backend/node_modules
     environment:
-      NODE_ENV: development
-      PORT: 3000
-    restart: unless-stopped
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: todo
+    depends_on:
+      - mysql
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: client
+    container_name: todo-client
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
   mysql:
     image: mysql:9.3
     container_name: todo-mysql
-    restart: unless-stopped
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: todo_db
-      MYSQL_USER: app_user
-      MYSQL_PASSWORD: app_pass
+      MYSQL_DATABASE: todo
     ports:
       - "3306:3306"
     volumes:
@@ -31,7 +41,7 @@ services:
   phpmyadmin:
     image: phpmyadmin
     container_name: phpmyadmin
-    restart: unless-stopped
+    restart: always
     ports:
       - "8081:80"
     environment:

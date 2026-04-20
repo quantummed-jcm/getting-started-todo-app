@@ -1,5 +1,5 @@
 # =========================
-# BASE (Backend)
+# BACKEND BUILD STAGE
 # =========================
 FROM node:20-alpine AS backend
 
@@ -18,39 +18,36 @@ RUN ln -sf python3 /usr/bin/python
 COPY backend/package*.json ./
 RUN npm install
 
-COPY backend/ ./
+COPY backend/ .
 
 # =========================
-# FRONTEND BUILD (VITE)
+# FRONTEND BUILD STAGE
 # =========================
-FROM node:20-alpine AS frontend-build
+FROM node:20-alpine AS frontend
 
 WORKDIR /app/client
 
 COPY client/package*.json ./
 RUN npm install
 
-COPY client/ ./
+COPY client/ .
 RUN npm run build
 
 # =========================
-# FINAL RUNTIME IMAGE
+# FINAL RUNTIME STAGE
 # =========================
-FROM node:20-alpine
+FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies for backend
+# runtime dependencies only (NO build tools)
 RUN apk add --no-cache sqlite sqlite-dev bash
 
-RUN ln -sf python3 /usr/bin/python || true
-
-# Copy backend
+# backend
 COPY --from=backend /app/backend /app/backend
-COPY --from=backend /app/backend/node_modules /app/backend/node_modules
 
-# Copy frontend build into backend static folder OR nginx folder
-COPY --from=frontend-build /app/client/dist /app/client/dist
+# frontend build
+COPY --from=frontend /app/client/dist /app/backend/public
 
 WORKDIR /app/backend
 
