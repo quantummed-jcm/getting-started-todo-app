@@ -68,7 +68,6 @@ services:
   backend:
     build:
       context: ./
-      target: backend-dev
     environment:
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -106,7 +105,6 @@ services:
   client:
     build:
       context: ./
-      target: client-dev
     develop:
       watch:
         - path: ./client/src
