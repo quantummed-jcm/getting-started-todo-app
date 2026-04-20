@@ -1,59 +1,89 @@
 ###################################################
-# Stage: base
+# Base image (shared)
 ###################################################
 FROM node:22-alpine AS base
+
 WORKDIR /usr/local/app
 
-################## CLIENT ##################
 
+###################################################
+# CLIENT BASE
+###################################################
 FROM base AS client-base
 
-COPY client/package.json client/package-lock.json ./
+COPY client/package*.json ./
 RUN npm install
 
 COPY client/ .
 
+
 ###################################################
-# Build stage (FIXED)
+# CLIENT BUILD (Vite)
 ###################################################
 FROM client-base AS client-build
+
 RUN npm run build
 
-################## BACKEND ##################
 
-FROM base AS backend-dev
+###################################################
+# BACKEND BASE
+###################################################
+FROM base AS backend-base
 
 COPY backend/package*.json ./
+
+# 🔥 REQUIRED for sqlite3 / node-gyp build
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    py3-pip
+
 RUN npm ci
 
 COPY backend/ .
 
+
+###################################################
+# BACKEND DEV
+###################################################
+FROM backend-base AS backend-dev
+
 CMD ["npm", "run", "dev"]
 
-################## TEST ##################
 
-FROM backend-dev AS test
+###################################################
+# TEST STAGE
+###################################################
+FROM backend-base AS test
+
 RUN npm run test
 
-################## FINAL ##################
 
-# Use lightweight runtime
+###################################################
+# FINAL PRODUCTION IMAGE
+###################################################
 FROM node:22-alpine AS final
 
 WORKDIR /usr/local/app
 
 ENV NODE_ENV=production
 
-# Install only production dependencies
-COPY --from=test /usr/local/app/package*.json ./
+# Install production dependencies only
+COPY backend/package*.json ./
 
-RUN npm ci --omit=dev && \
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    py3-pip && \
+    npm ci --omit=dev && \
     npm cache clean --force
 
-# Copy backend code
+# Backend source
 COPY backend/src ./src
 
-# Copy built client
+# Frontend build output (Vite)
 COPY --from=client-build /usr/local/app/dist ./src/static
 
 EXPOSE 3000
