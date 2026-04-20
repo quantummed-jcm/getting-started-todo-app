@@ -1,91 +1,60 @@
 ###################################################
-# Base image (shared)
+# BASE (shared lightweight image)
 ###################################################
 FROM node:22-alpine AS base
 
-WORKDIR /usr/local/app
+WORKDIR /app
 
 
 ###################################################
-# CLIENT BASE
+# ================= CLIENT =======================
 ###################################################
-FROM base AS client-base
+FROM base AS client-deps
 
 COPY client/package*.json ./
-RUN npm install
+RUN npm ci
+
+
+FROM client-deps AS client-build
 
 COPY client/ .
-
-
-###################################################
-# CLIENT BUILD (Vite)
-###################################################
-FROM client-base AS client-build
-
 RUN npm run build
 
 
 ###################################################
-# BACKEND BASE
+# ================= BACKEND =======================
 ###################################################
-FROM base AS backend-base
+FROM base AS backend-deps
 
 COPY backend/package*.json ./
 
-# 🔥 REQUIRED for sqlite3 / node-gyp build
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    py3-pip
-
-RUN npm ci
+# ONLY install production deps (NO sqlite3 build tools)
+RUN npm ci --omit=dev
 
 COPY backend/ .
 
 
 ###################################################
-# BACKEND DEV
+# BACKEND RUNTIME (CLEAN)
 ###################################################
-FROM backend-base AS backend-dev
+FROM node:22-alpine AS backend
 
-CMD ["npm", "run", "dev"]
-
-
-###################################################
-# TEST STAGE
-###################################################
-FROM backend-base AS test
-
-RUN npm run test
-
-
-###################################################
-# FINAL PRODUCTION IMAGE
-###################################################
-FROM node:22-alpine AS final
-
-WORKDIR /usr/local/app
+WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install production dependencies only
-COPY backend/package*.json ./
-
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    py3-pip && \
-    npm ci --omit=dev && \
-    npm cache clean --force
-
-# Backend source
-COPY backend/src ./src
-
-# Frontend build output (Vite)
-COPY --from=client-build /usr/local/app/dist ./src/static
+COPY --from=backend-deps /app /app
 
 EXPOSE 3000
 
 CMD ["node", "src/index.js"]
+
+
+###################################################
+# ================= FINAL FRONTEND ===============
+###################################################
+FROM nginx:alpine AS frontend
+
+COPY --from=client-build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
