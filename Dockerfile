@@ -1,90 +1,60 @@
 ###################################################
 # Stage: base
-# 
-# This base stage ensures all other stages are using the same base image
-# and provides common configuration for all stages, such as the working dir.
 ###################################################
-FROM node:22 AS base
+FROM node:22-alpine AS base
 WORKDIR /usr/local/app
 
-################## CLIENT STAGES ##################
+################## CLIENT ##################
 
-###################################################
-# Stage: client-base
-#
-# This stage is used as the base for the client-dev and client-build stages,
-# since there are common steps needed for each.
-###################################################
 FROM base AS client-base
-COPY client/package.json client/package-lock.json ./
-RUN npm install
-COPY client/.eslintrc.cjs client/index.html client/vite.config.js ./
-COPY client/public ./public
-COPY client/src ./src
 
-###################################################
-# Stage: client-dev
-# 
-# This stage is used for development of the client application. It sets 
-# the default command to start the Vite development server.
-###################################################
-FROM client-base AS client-dev
-CMD ["npm", "run", "dev"]
+COPY client/package*.json ./
 
-###################################################
-# Stage: client-build
-#
-# This stage builds the client application, producing static HTML, CSS, and
-# JS files that can be served by the backend.
-###################################################
-FROM client-base AS client-build
+# Faster + smaller install
+RUN npm ci
+
+COPY client/ .
+
+FROM client-build AS client-build
 RUN npm run build
 
+################## BACKEND ##################
 
-
-
-###################################################
-################  BACKEND STAGES  #################
-###################################################
-
-###################################################
-# Stage: backend-base
-#
-# This stage is used as the base for the backend-dev and test stages, since
-# there are common steps needed for each.
-###################################################
 FROM base AS backend-dev
-COPY backend/package.json backend/package-lock.json ./
-RUN npm install
-COPY backend/spec ./spec
-COPY backend/src ./src
+
+COPY backend/package*.json ./
+RUN npm ci
+
+COPY backend/ .
+
 CMD ["npm", "run", "dev"]
 
-###################################################
-# Stage: test
-#
-# This stage runs the tests on the backend. This is split into a separate
-# stage to allow the final image to not have the test dependencies or test
-# cases.
-###################################################
+################## TEST ##################
+
 FROM backend-dev AS test
 RUN npm run test
 
-###################################################
-# Stage: final
-#
-# This stage is intended to be the final "production" image. It sets up the
-# backend and copies the built client application from the client-build stage.
-#
-# It pulls the package.json and package-lock.json from the test stage to ensure that
-# the tests run (without this, the test stage would simply be skipped).
-###################################################
-FROM base AS final
+################## FINAL ##################
+
+# Use lightweight runtime
+FROM node:22-alpine AS final
+
+WORKDIR /usr/local/app
+
 ENV NODE_ENV=production
-COPY --from=test /usr/local/app/package.json /usr/local/app/package-lock.json ./
-RUN npm ci --production && \
+
+# Install only production dependencies
+COPY --from=test /usr/local/app/package*.json ./
+
+RUN npm ci --omit=dev && \
     npm cache clean --force
+
+# Copy backend code
 COPY backend/src ./src
+
+# Copy built client
 COPY --from=client-build /usr/local/app/dist ./src/static
+
 EXPOSE 3000
+
 CMD ["node", "src/index.js"]
