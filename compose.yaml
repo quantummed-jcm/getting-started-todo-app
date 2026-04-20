@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: backend
+      target: runtime
     container_name: todo-backend
     ports:
       - "3000:3000"
@@ -14,17 +14,7 @@ services:
       DB_NAME: todo
     depends_on:
       - mysql
-
-  client:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: frontend
-    container_name: todo-client
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+    restart: unless-stopped
 
   mysql:
     image: mysql:9.3
@@ -46,6 +36,8 @@ services:
       - "8081:80"
     environment:
       PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root
     depends_on:
       - mysql
 
