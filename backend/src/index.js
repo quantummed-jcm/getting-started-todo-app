@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const db = require('./persistence');
+
 const getGreeting = require('./routes/getGreeting');
 const getItems = require('./routes/getItems');
 const addItem = require('./routes/addItem');
@@ -18,7 +19,9 @@ app.delete('/api/items/:id', deleteItem);
 
 db.init()
     .then(() => {
-        app.listen(3000, () => console.log('Listening on port 3000'));
+        app.listen(3000, "0.0.0.0", () => {
+            console.log('Listening on port 3000');
+        });
     })
     .catch((err) => {
         console.error(err);
@@ -26,11 +29,14 @@ db.init()
     });
 
 const gracefulShutdown = () => {
+    console.log("Shutting down gracefully...");
+
     db.teardown()
         .catch(() => {})
-        .then(() => process.exit());
+        .finally(() => {
+            process.exit(0);
+        });
 };
 
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
-process.on('SIGUSR2', gracefulShutdown); // Sent by nodemon
