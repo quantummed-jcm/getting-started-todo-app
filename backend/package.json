@@ -7,7 +7,7 @@
     "format-check": "prettier --check \"**/*.js\"",
     "test": "jest",
     "dev": "nodemon src/index.js",
-    "start": "node index.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
     "express": "^5.1.0",
