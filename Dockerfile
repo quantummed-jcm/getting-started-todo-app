@@ -40,17 +40,16 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# runtime dependencies only (NO build tools)
 RUN apk add --no-cache sqlite sqlite-dev bash
 
-# backend
+# Copy backend
 COPY --from=backend /app/backend /app/backend
 
-# frontend build
+# Copy frontend build
 COPY --from=frontend /app/client/dist /app/backend/public
 
 WORKDIR /app/backend
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "src/index.js"]

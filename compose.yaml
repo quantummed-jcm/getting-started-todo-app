@@ -7,13 +7,8 @@ services:
     container_name: todo-backend
     ports:
       - "3000:3000"
-    environment:
-      DB_HOST: mysql
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: todo
-    depends_on:
-      - mysql
+    volumes:
+      - todo-data:/etc/todos
     restart: unless-stopped
 
   mysql:
@@ -43,3 +38,4 @@ services:
 
 volumes:
   mysql-data:
+  todo-data:
