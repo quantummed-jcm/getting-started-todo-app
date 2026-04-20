@@ -1,11 +1,10 @@
 # =========================
-# BASE IMAGE
+# BASE
 # =========================
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
-WORKDIR /app/backend
+WORKDIR /app
 
-# Install build tools required for sqlite3
 RUN apk add --no-cache \
     python3 \
     make \
@@ -16,41 +15,42 @@ RUN apk add --no-cache \
 RUN ln -sf python3 /usr/bin/python
 
 # =========================
-# DEPENDENCIES STAGE
+# BACKEND BUILD
 # =========================
-FROM base AS deps
+FROM base AS backend
+
+WORKDIR /app/backend
 
 COPY backend/package*.json ./
 RUN npm install
 
-# =========================
-# DEV STAGE
-# =========================
-FROM base AS backend-dev
-
-WORKDIR /app/backend
-
 COPY backend/ ./
-COPY --from=deps /app/backend/node_modules ./node_modules
 
 EXPOSE 3000
 
 CMD ["npm", "run", "dev"]
 
+
 # =========================
-# PRODUCTION STAGE
+# CLIENT BUILD
 # =========================
-FROM node:20-alpine AS backend-prod
+FROM node:22-alpine AS client-build
 
-WORKDIR /app/backend
+WORKDIR /app/client
 
-RUN apk add --no-cache sqlite sqlite-dev
+COPY client/package*.json ./
+RUN npm install
 
-COPY backend/package*.json ./
-RUN npm install --omit=dev
+COPY client/ .
+RUN npm run build
 
-COPY backend/ ./
 
-EXPOSE 3000
+# =========================
+# NGINX SERVE CLIENT
+# =========================
+FROM nginx:alpine AS client
 
-CMD ["npm", "start"]
+COPY --from=client-build /app/client/dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

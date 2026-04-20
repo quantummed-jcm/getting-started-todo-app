@@ -1,26 +1,17 @@
 services:
 
-  ###################################################
-  # PROXY (Traefik)
-  ###################################################
   proxy:
     image: traefik:v3.6
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
+    command: --providers.docker
     ports:
       - "80:80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  ###################################################
-  # BACKEND (API)
-  ###################################################
   backend:
     build:
       context: .
-      target: backend-dev
+      target: backend
     environment:
       MYSQL_HOST: mysql
       MYSQL_USER: root
@@ -30,44 +21,32 @@ services:
       mysql:
         condition: service_healthy
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/api`)
-      - traefik.http.routers.backend.entrypoints=web
-      - traefik.http.services.backend.loadbalancer.server.port=3000
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
 
-  ###################################################
-  # CLIENT (FRONTEND)
-  ###################################################
   client:
     build:
       context: .
-    depends_on:
-      - backend
+      target: client
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.client.rule=Host(`localhost`)
-      - traefik.http.routers.client.entrypoints=web
-      - traefik.http.services.client.loadbalancer.server.port=80
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`localhost`)"
+      - "traefik.http.services.client.loadbalancer.server.port=80"
 
-  ###################################################
-  # MYSQL DATABASE
-  ###################################################
   mysql:
     image: mysql:9.3
-    volumes:
-      - todo-mysql-data:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: todos
+    volumes:
+      - todo-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
-  ###################################################
-  # PHPMYADMIN
-  ###################################################
   phpmyadmin:
     image: phpmyadmin
     environment:
@@ -75,13 +54,9 @@ services:
       PMA_USER: root
       PMA_PASSWORD: secret
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.phpmyadmin.rule=Host(`db.localhost`)
-      - traefik.http.routers.phpmyadmin.entrypoints=web
-      - traefik.http.services.phpmyadmin.loadbalancer.server.port=80
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`db.localhost`)"
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
 
-###################################################
-# VOLUMES
-###################################################
 volumes:
   todo-mysql-data:
