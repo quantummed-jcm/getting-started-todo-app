@@ -1,5 +1,8 @@
 services:
 
+  ############################################
+  # 🌐 Reverse Proxy (Traefik)
+  ############################################
   proxy:
     image: traefik:v3.6
     command:
@@ -11,6 +14,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+  ############################################
+  # 🧠 Backend (Node API)
+  ############################################
   backend:
     build:
       context: ./
@@ -31,10 +37,15 @@ services:
       - traefik.http.routers.backend.entrypoints=web
       - traefik.http.services.backend.loadbalancer.server.port=3000
 
+  ############################################
+  # 🎨 Frontend (React/Vite served via nginx)
+  ############################################
   client:
     build:
       context: ./
-      target: client-dev
+      target: frontend
+    depends_on:
+      - backend
     expose:
       - "5173"
     labels:
@@ -43,6 +54,9 @@ services:
       - traefik.http.routers.client.entrypoints=web
       - traefik.http.services.client.loadbalancer.server.port=5173
 
+  ############################################
+  # 🗄 MySQL Database
+  ############################################
   mysql:
     image: mysql:9.3
     environment:
@@ -56,6 +70,9 @@ services:
       timeout: 5s
       retries: 5
 
+  ############################################
+  # 🧾 phpMyAdmin (DB UI)
+  ############################################
   phpmyadmin:
     image: phpmyadmin
     environment:
@@ -68,5 +85,8 @@ services:
       - traefik.http.routers.phpmyadmin.entrypoints=web
       - traefik.http.services.phpmyadmin.loadbalancer.server.port=80
 
+############################################
+# 💾 Persistent volume
+############################################
 volumes:
   todo-mysql-data:

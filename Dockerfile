@@ -1,61 +1,64 @@
-###################################################
-# BASE
-###################################################
+############################################
+# 🟢 BASE IMAGE (shared dependencies)
+############################################
 FROM node:22-alpine AS base
-
 WORKDIR /app
 
-
-###################################################
-# ================= BACKEND ======================
-###################################################
+############################################
+# 🟡 BACKEND DEPENDENCIES
+############################################
 FROM base AS backend-deps
+COPY backend/package*.json ./backend/
+WORKDIR /app/backend
+RUN npm install
+
+############################################
+# 🟠 BACKEND DEV (matches compose fix)
+############################################
+FROM base AS backend-dev
+WORKDIR /app/backend
 
 COPY backend/package*.json ./
+RUN npm install
 
-# Install ONLY production dependencies
-RUN npm ci --omit=dev && npm cache clean --force
-
-COPY backend/ .
-
-
-###################################################
-# BACKEND RUNTIME (CLEAN)
-###################################################
-FROM node:22-alpine AS backend
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-# Copy clean backend
-COPY --from=backend-deps /app /app
+COPY backend/ ./
 
 EXPOSE 3000
+CMD ["npm", "run", "dev"]
 
-CMD ["node", "src/index.js"]
-
-
-###################################################
-# ================= FRONTEND =====================
-###################################################
+############################################
+# 🔵 FRONTEND DEPENDENCIES
+############################################
 FROM base AS client-deps
+COPY client/package*.json ./client/
+WORKDIR /app/client
+RUN npm install
 
-COPY client/package*.json ./
-RUN npm ci
-
-COPY client/ .
-
+############################################
+# 🟣 FRONTEND BUILD
+############################################
 FROM client-deps AS client-build
-
+COPY client/ ./
 RUN npm run build
 
-
-###################################################
-# FRONTEND RUNTIME (NGINX)
-###################################################
+############################################
+# 🟤 FRONTEND PRODUCTION (NGINX)
+############################################
 FROM nginx:alpine AS frontend
 
-COPY --from=client-build /app/dist /usr/share/nginx/html
+COPY --from=client-build /app/client/dist /usr/share/nginx/html
 
-EXPOSE 80
+# SPA routing fix (important for React/Vite)
+RUN printf 'server {\n\
+  listen 5173;\n\
+  server_name localhost;\n\
+  root /usr/share/nginx/html;\n\
+  index index.html;\n\
+\n\
+  location / {\n\
+    try_files $uri /index.html;\n\
+  }\n\
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 5173
+CMD ["nginx", "-g", "daemon off;"]
