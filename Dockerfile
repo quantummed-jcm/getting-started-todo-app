@@ -8,14 +8,15 @@ WORKDIR /usr/local/app
 
 FROM base AS client-base
 
-COPY client/package*.json ./
-
-# Faster + smaller install
-RUN npm ci
+COPY client/package.json client/package-lock.json ./
+RUN npm install
 
 COPY client/ .
 
-FROM client-build AS client-build
+###################################################
+# Build stage (FIXED)
+###################################################
+FROM client-base AS client-build
 RUN npm run build
 
 ################## BACKEND ##################
