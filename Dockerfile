@@ -1,11 +1,11 @@
 # =========================
-# BASE IMAGE (build stage)
+# BASE IMAGE
 # =========================
-FROM node:22-alpine AS base
+FROM node:20-alpine AS base
 
 WORKDIR /app/backend
 
-# Install dependencies needed for sqlite3 + node-gyp
+# Install build tools required for sqlite3
 RUN apk add --no-cache \
     python3 \
     make \
@@ -13,20 +13,18 @@ RUN apk add --no-cache \
     sqlite \
     sqlite-dev
 
-# Ensure python command exists (node-gyp requirement)
 RUN ln -sf python3 /usr/bin/python
 
 # =========================
-# INSTALL DEPENDENCIES
+# DEPENDENCIES STAGE
 # =========================
 FROM base AS deps
 
 COPY backend/package*.json ./
-
-RUN npm install --build-from-source
+RUN npm install
 
 # =========================
-# DEV / BUILD STAGE
+# DEV STAGE
 # =========================
 FROM base AS backend-dev
 
@@ -40,16 +38,16 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # =========================
-# PRODUCTION STAGE (OPTIONAL)
+# PRODUCTION STAGE
 # =========================
-FROM node:22-alpine AS backend-prod
+FROM node:20-alpine AS backend-prod
 
 WORKDIR /app/backend
 
 RUN apk add --no-cache sqlite sqlite-dev
 
 COPY backend/package*.json ./
-RUN npm install --omit=dev --build-from-source
+RUN npm install --omit=dev
 
 COPY backend/ ./
 
